@@ -12,12 +12,17 @@ import { mockBatches } from '../data/mockData';
 export default function Marketplace() {
   const [countryFilter, setCountryFilter] = useState('all');
   const [energyTypeFilter, setEnergyTypeFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const availableBatches = mockBatches.filter(b => b.status === 'active' && b.availableKwh > 0);
 
   const filteredBatches = availableBatches.filter(batch => {
     if (countryFilter !== 'all' && batch.country !== countryFilter) return false;
     if (energyTypeFilter !== 'all' && batch.energyType !== energyTypeFilter) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!batch.id.toLowerCase().includes(q) && !batch.producerName.toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 
@@ -38,7 +43,12 @@ export default function Marketplace() {
               <div className="md:col-span-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Search by batch ID or producer..." className="pl-9" />
+                  <Input
+                    placeholder="Search by batch ID or producer..."
+                    className="pl-9"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
               </div>
 
@@ -149,6 +159,7 @@ export default function Marketplace() {
                 onClick={() => {
                   setCountryFilter('all');
                   setEnergyTypeFilter('all');
+                  setSearchQuery('');
                 }}
               >
                 Clear filters

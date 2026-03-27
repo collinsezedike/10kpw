@@ -19,6 +19,11 @@ export default function SubmitBatch() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [batchId] = useState(`BATCH-2026-${Math.floor(Math.random() * 900 + 100)}`);
+  const [month, setMonth] = useState('january');
+  const [energyType, setEnergyType] = useState('solar');
+  const [kwh, setKwh] = useState('25000');
+  const [facilityId, setFacilityId] = useState('FAC-KE-001');
+  const [price, setPrice] = useState('0.08');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +68,7 @@ export default function SubmitBatch() {
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="month">Reporting Month</Label>
-                    <Select defaultValue="january">
+                    <Select value={month} onValueChange={setMonth}>
                       <SelectTrigger id="month">
                         <SelectValue />
                       </SelectTrigger>
@@ -77,7 +82,7 @@ export default function SubmitBatch() {
 
                   <div className="space-y-2">
                     <Label htmlFor="energy-type">Energy Type</Label>
-                    <Select defaultValue="solar">
+                    <Select value={energyType} onValueChange={setEnergyType}>
                       <SelectTrigger id="energy-type">
                         <SelectValue />
                       </SelectTrigger>
@@ -97,7 +102,8 @@ export default function SubmitBatch() {
                     id="kwh"
                     type="number"
                     placeholder="25000"
-                    defaultValue="25000"
+                    value={kwh}
+                    onChange={(e) => setKwh(e.target.value)}
                   />
                   <p className="text-sm text-muted-foreground">
                     Total kWh generated and delivered to grid during reporting period
@@ -110,7 +116,8 @@ export default function SubmitBatch() {
                   <Input
                     id="facility-id"
                     placeholder="FAC-KE-001"
-                    defaultValue="FAC-KE-001"
+                    value={facilityId}
+                    onChange={(e) => setFacilityId(e.target.value)}
                   />
                 </div>
 
@@ -122,7 +129,8 @@ export default function SubmitBatch() {
                     type="number"
                     step="0.01"
                     placeholder="0.08"
-                    defaultValue="0.08"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
                   />
                   <p className="text-sm text-muted-foreground">
                     Your listing price for the marketplace
@@ -157,7 +165,7 @@ export default function SubmitBatch() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Tokens to Mint:</span>
-                        <span className="font-medium">25,000 KPWATTS</span>
+                        <span className="font-medium">{Number(kwh).toLocaleString()} KPWATTS</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Verification:</span>
@@ -205,11 +213,11 @@ export default function SubmitBatch() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Energy:</span>
-                <span className="font-medium">25,000 kWh</span>
+                <span className="font-medium">{Number(kwh).toLocaleString()} kWh</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tokens:</span>
-                <span className="font-medium">25,000 KPWATTS</span>
+                <span className="font-medium">{Number(kwh).toLocaleString()} KPWATTS</span>
               </div>
             </div>
             <Button className="w-full" onClick={handleMint}>

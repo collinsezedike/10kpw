@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
 
 export default function ProducerDashboard() {
   const { user } = useUser();
@@ -161,7 +161,7 @@ export default function ProducerDashboard() {
                 const info = inv.information;
                 const isOnline = inv.lastSeen &&
                   new Date(inv.lastSeen) > new Date(Date.now() - 24 * 60 * 60 * 1000);
-                const loc = inv.location;
+                const loc = locations[inv.id];
 
                 return (
                   <Card key={inv.id} className="flex flex-col">

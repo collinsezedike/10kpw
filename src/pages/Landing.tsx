@@ -17,7 +17,7 @@ export default function Landing() {
     setLinkError('');
     setLinking(true);
     try {
-      const res = await fetch('http://localhost:3001/api/enode/link', {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE ?? 'http://localhost:3001'}/api/enode/link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user!.id }),

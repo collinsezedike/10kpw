@@ -15,6 +15,7 @@ export default function Retire() {
   const [quantity, setQuantity] = useState<number>(3000);
   const [isRetiring, setIsRetiring] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
+  const [certificateId, setCertificateId] = useState('');
 
   const ownedBatches = [
     { id: 'BATCH-2026-002', producer: 'WindPower Ghana', owned: 6500 },
@@ -30,6 +31,7 @@ export default function Retire() {
     setIsRetiring(true);
 
     setTimeout(() => {
+      setCertificateId(`RET-2026-${Math.floor(Math.random() * 1000)}`);
       setIsRetiring(false);
       setShowCertificate(true);
     }, 2000);
@@ -223,7 +225,7 @@ export default function Retire() {
                 <div className="space-y-3 border-t border-b border-border py-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Certificate ID:</span>
-                    <span className="font-mono font-medium">RET-2026-{Math.floor(Math.random() * 1000)}</span>
+                    <span className="font-mono font-medium">{certificateId}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Batch ID:</span>
