@@ -567,6 +567,71 @@ app.get('/api/energy/listings', async (req, res) => {
   }
 });
 
+/**
+ * Fulfill a purchase after the Interswitch payment has cleared.
+ * Calls fulfill_purchase on-chain (operator signs) to transfer tokens from
+ * escrow to the buyer. If no listingPublicKey is provided (e.g. mock data),
+ * the on-chain step is skipped and the payment ref is returned as-is.
+ *
+ * POST /api/payment/fulfill
+ * Body: { buyerUserId, paymentRef, listingPublicKey?, listingId?, sellerAddress?, amount? }
+ */
+app.post('/api/payment/fulfill', async (req, res) => {
+  const { buyerUserId, paymentRef, listingPublicKey, listingId, sellerAddress } = req.body;
+  if (!buyerUserId || !paymentRef) {
+    return res.status(400).json({ error: 'buyerUserId and paymentRef are required' });
+  }
+
+  // If no on-chain listing info is provided, skip blockchain step
+  if (!listingPublicKey || listingId == null || !sellerAddress) {
+    return res.json({ tx: paymentRef, skippedOnChain: true });
+  }
+
+  try {
+    const { PublicKey } = require('@solana/web3.js');
+    const { BN } = require('@coral-xyz/anchor');
+
+    const operator = getOperatorKeypair();
+    const program = requireProgram(operator, res);
+    if (!program) return;
+
+    const buyerKeypair = deriveUserKeypair(buyerUserId);
+    const [configPda] = getConfigPda();
+    const [energyMintPda] = getEnergyMintPda();
+    const [buyerProfilePda] = getUserProfilePda(buyerKeypair.publicKey);
+
+    const listingPubkey = new PublicKey(listingPublicKey);
+    const sellerPubkey = new PublicKey(sellerAddress);
+
+    const buyerAta = getAssociatedTokenAddressSync(energyMintPda, buyerKeypair.publicKey);
+    const [escrowPda] = getEscrowPda(listingPubkey);
+
+    const tx = await program.methods
+      .fulfillPurchase(new BN(listingId.toString()), paymentRef)
+      .accounts({
+        config: configPda,
+        authority: operator.publicKey,
+        energyMint: energyMintPda,
+        buyer: buyerKeypair.publicKey,
+        buyerTokenAccount: buyerAta,
+        buyerProfile: buyerProfilePda,
+        seller: sellerPubkey,
+        listing: listingPubkey,
+        escrowTokenAccount: escrowPda,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([operator])
+      .rpc();
+
+    return res.json({ tx });
+  } catch (err) {
+    console.error('payment/fulfill error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 Backend running on port ${PORT}`);

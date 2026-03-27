@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ArrowLeft, CheckCircle2, ExternalLink, MapPin } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
+import { ArrowLeft, CheckCircle2, ExternalLink, Loader2, MapPin } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -11,15 +12,28 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { mockBatches } from '../data/mockData';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
+
+// On-chain batches passed via router state may have these extra fields.
+interface OnChainFields {
+  listingPublicKey?: string;
+  listingId?: number;
+  sellerAddress?: string;
+}
+
 export default function BatchDetail() {
   const { batchId } = useParams();
   const navigate = useNavigate();
+  const { user } = useUser();
+
   const [quantity, setQuantity] = useState<number>(1000);
   const [showPurchase, setShowPurchase] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [purchaseTx, setPurchaseTx] = useState('');
+  const [purchaseError, setPurchaseError] = useState('');
 
-  const batch = mockBatches.find(b => b.id === batchId);
+  const batch = mockBatches.find(b => b.id === batchId) as (typeof mockBatches[0] & OnChainFields) | undefined;
 
   if (!batch) {
     return (
@@ -31,7 +45,6 @@ export default function BatchDetail() {
 
   const totalCost = quantity * batch.pricePerKwh;
 
-  // Mock generation data
   const generationData = [
     { day: 1, kwh: 800 },
     { day: 5, kwh: 820 },
@@ -43,12 +56,60 @@ export default function BatchDetail() {
   ];
 
   const handlePurchase = () => {
+    if (!user?.id) {
+      navigate('/auth');
+      return;
+    }
+
+    setPurchaseError('');
+    const txnRef = `KPWATTS-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    // Amount in smallest currency unit (kobo for NGN, cents for USD)
+    const amountInSmallestUnit = Math.round(totalCost * 100);
+
+    setShowPurchase(false);
     setIsPurchasing(true);
-    setTimeout(() => {
-      setIsPurchasing(false);
-      setShowPurchase(false);
-      setShowSuccess(true);
-    }, 2000);
+
+    window.webpayCheckout({
+      merchant_code: import.meta.env.VITE_INTERSWITCH_MERCHANT_CODE || 'DEMO',
+      pay_item_id: import.meta.env.VITE_INTERSWITCH_PAY_ITEM_ID || 'Default_Payable_DEMO',
+      txn_ref: txnRef,
+      amount: amountInSmallestUnit,
+      currency: Number(import.meta.env.VITE_INTERSWITCH_CURRENCY || 566),
+      site_redirect_url: `${window.location.origin}/buyer-dashboard`,
+      mode: (import.meta.env.VITE_INTERSWITCH_MODE as 'TEST' | 'LIVE') || 'TEST',
+      onComplete: async (response) => {
+        const success = response.resp === '00' || response.responseCode === '00';
+        if (success) {
+          try {
+            const fulfillRes = await fetch(`${API_BASE}/api/payment/fulfill`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                buyerUserId: user.id,
+                paymentRef: response.txnref || txnRef,
+                listingPublicKey: batch.listingPublicKey,
+                listingId: batch.listingId,
+                sellerAddress: batch.sellerAddress,
+                amount: quantity,
+              }),
+            });
+            const fulfillData = fulfillRes.ok ? await fulfillRes.json() : {};
+            setPurchaseTx(fulfillData.tx || response.txnref || txnRef);
+          } catch {
+            // Non-critical: payment succeeded, on-chain step failed — still show success
+            setPurchaseTx(response.txnref || txnRef);
+          }
+          setIsPurchasing(false);
+          setShowSuccess(true);
+        } else {
+          setPurchaseError('Payment was not completed. Please try again.');
+          setIsPurchasing(false);
+        }
+      },
+      onClose: () => {
+        setIsPurchasing(false);
+      },
+    });
   };
 
   const handleSuccessClose = () => {
@@ -58,6 +119,16 @@ export default function BatchDetail() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Full-screen loading overlay while payment is being processed */}
+      {isPurchasing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Processing payment…</p>
+          </div>
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-8 lg:px-8">
         <Button
           variant="ghost"
@@ -246,6 +317,12 @@ export default function BatchDetail() {
                   </div>
                 </div>
 
+                {purchaseError && (
+                  <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                    {purchaseError}
+                  </div>
+                )}
+
                 <Button
                   className="w-full"
                   size="lg"
@@ -256,7 +333,7 @@ export default function BatchDetail() {
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  Secure transaction via smart contract
+                  Secure payment via Interswitch
                 </p>
               </CardContent>
             </Card>
@@ -270,7 +347,7 @@ export default function BatchDetail() {
           <DialogHeader>
             <DialogTitle>Confirm Purchase</DialogTitle>
             <DialogDescription>
-              Review your purchase details and confirm the transaction
+              Review your purchase details before proceeding to payment
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -296,8 +373,8 @@ export default function BatchDetail() {
               <Button variant="outline" onClick={() => setShowPurchase(false)} className="flex-1">
                 Cancel
               </Button>
-              <Button onClick={handlePurchase} disabled={isPurchasing} className="flex-1">
-                {isPurchasing ? 'Processing...' : 'Confirm Purchase'}
+              <Button onClick={handlePurchase} className="flex-1">
+                Pay with Interswitch
               </Button>
             </div>
           </div>
@@ -318,10 +395,12 @@ export default function BatchDetail() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg bg-muted p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Transaction Hash:</span>
-                <span className="font-mono text-xs">0xabc...def</span>
-              </div>
+              {purchaseTx && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Transaction:</span>
+                  <span className="font-mono text-xs break-all text-right max-w-[60%]">{purchaseTx}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tokens Received:</span>
                 <span className="font-medium">{quantity.toLocaleString()} KPWATTS</span>

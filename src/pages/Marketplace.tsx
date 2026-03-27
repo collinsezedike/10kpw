@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router';
 import { CheckCircle2, ChevronDown, ChevronUp, Filter, Search } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
@@ -8,7 +8,46 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
-import { mockBatches } from '../data/mockData';
+import { mockBatches, EnergyBatch } from '../data/mockData';
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
+
+interface OnChainListing {
+  publicKey: string;
+  seller: string;
+  amount: string;
+  pricePerUnit: string;
+  listingId: string;
+}
+
+function onChainListingToBatch(listing: OnChainListing): EnergyBatch & {
+  listingPublicKey: string;
+  listingId: number;
+  sellerAddress: string;
+} {
+  const amount = Number(listing.amount);
+  const pricePerKwh = Number(listing.pricePerUnit) / 1_000_000;
+  const sellerShort = `${listing.seller.slice(0, 6)}...${listing.seller.slice(-4)}`;
+  return {
+    id: `ON-CHAIN-${listing.listingId}`,
+    producerId: listing.seller,
+    producerName: sellerShort,
+    country: 'On-Chain',
+    energyType: 'Solar',
+    totalKwh: amount,
+    availableKwh: amount,
+    pricePerKwh,
+    status: 'active',
+    verificationStatus: 'verified',
+    mintedAt: new Date().toISOString(),
+    mintTxHash: listing.publicKey,
+    facilityId: listing.seller.slice(0, 8),
+    reportingPeriod: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    listingPublicKey: listing.publicKey,
+    listingId: Number(listing.listingId),
+    sellerAddress: listing.seller,
+  };
+}
 
 export default function Marketplace() {
   const [countryFilter, setCountryFilter] = useState('all');
@@ -19,8 +58,27 @@ export default function Marketplace() {
   const [maxPrice, setMaxPrice] = useState('');
   const [minKwh, setMinKwh] = useState('');
   const [verificationFilter, setVerificationFilter] = useState('all');
+  const [onChainBatches, setOnChainBatches] = useState<ReturnType<typeof onChainListingToBatch>[]>([]);
 
-  const availableBatches = mockBatches.filter(b => b.status === 'active' && b.availableKwh > 0);
+  useEffect(() => {
+    fetch(`${API_BASE}/api/energy/listings`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.listings?.length) {
+          setOnChainBatches(data.listings.map(onChainListingToBatch));
+        }
+      })
+      .catch(() => {/* use mock data as fallback */});
+  }, []);
+
+  // Merge: mock data first, then any on-chain listings not already in mock
+  const mockIds = new Set(mockBatches.map(b => b.id));
+  const extraOnChain = onChainBatches.filter(b => !mockIds.has(b.id));
+  const allBatches = [...mockBatches, ...extraOnChain] as (EnergyBatch & Partial<{
+    listingPublicKey: string; listingId: number; sellerAddress: string;
+  }>)[];
+
+  const availableBatches = allBatches.filter(b => b.status === 'active' && b.availableKwh > 0);
 
   const filteredBatches = availableBatches.filter(batch => {
     if (countryFilter !== 'all' && batch.country !== countryFilter) return false;
