@@ -12,6 +12,11 @@ import Retire from './pages/Retire';
 import NotFound from './pages/NotFound';
 import VerifyEmail from './pages/verifyEmail';
 import ProtectedRoute from './components/ProtectedRoute';
+import About from './pages/About';
+import Documentation from './pages/Documentation';
+import Contact from './pages/Contact';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +29,11 @@ export const router = createBrowserRouter([
       { path: 'sso-callback', Component: AuthenticateWithRedirectCallback },
       { path: 'marketplace', Component: Marketplace },
       { path: 'batch/:batchId', Component: BatchDetail },
+      { path: 'about', Component: About },
+      { path: 'docs', Component: Documentation },
+      { path: 'contact', Component: Contact },
+      { path: 'terms', Component: Terms },
+      { path: 'privacy', Component: Privacy },
       {
         Component: ProtectedRoute,
         children: [

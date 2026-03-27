@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { CheckCircle2, Filter, Search } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Filter, Search } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { mockBatches } from '../data/mockData';
@@ -13,6 +14,11 @@ export default function Marketplace() {
   const [countryFilter, setCountryFilter] = useState('all');
   const [energyTypeFilter, setEnergyTypeFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [minKwh, setMinKwh] = useState('');
+  const [verificationFilter, setVerificationFilter] = useState('all');
 
   const availableBatches = mockBatches.filter(b => b.status === 'active' && b.availableKwh > 0);
 
@@ -23,8 +29,24 @@ export default function Marketplace() {
       const q = searchQuery.toLowerCase();
       if (!batch.id.toLowerCase().includes(q) && !batch.producerName.toLowerCase().includes(q)) return false;
     }
+    if (minPrice && batch.pricePerKwh < Number(minPrice)) return false;
+    if (maxPrice && batch.pricePerKwh > Number(maxPrice)) return false;
+    if (minKwh && batch.availableKwh < Number(minKwh)) return false;
+    if (verificationFilter !== 'all' && batch.verificationStatus !== verificationFilter) return false;
     return true;
   });
+
+  const hasActiveMoreFilters = minPrice || maxPrice || minKwh || verificationFilter !== 'all';
+
+  const clearAllFilters = () => {
+    setCountryFilter('all');
+    setEnergyTypeFilter('all');
+    setSearchQuery('');
+    setMinPrice('');
+    setMaxPrice('');
+    setMinKwh('');
+    setVerificationFilter('all');
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -39,6 +61,7 @@ export default function Marketplace() {
         {/* Filters */}
         <Card className="mb-6">
           <CardContent className="p-6">
+            {/* Main filter row */}
             <div className="grid gap-4 md:grid-cols-4">
               <div className="md:col-span-2">
                 <div className="relative">
@@ -76,6 +99,53 @@ export default function Marketplace() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* More filters toggle */}
+            {showMoreFilters && (
+              <div className="mt-4 grid gap-4 border-t border-border pt-4 md:grid-cols-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Min Price ($/kWh)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Max Price ($/kWh)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="Any"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Min Available (kWh)</Label>
+                  <Input
+                    type="number"
+                    placeholder="Any"
+                    value={minKwh}
+                    onChange={(e) => setMinKwh(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Verification</Label>
+                  <Select value={verificationFilter} onValueChange={setVerificationFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="verified">Verified Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -84,9 +154,23 @@ export default function Marketplace() {
           <p className="text-sm text-muted-foreground">
             Showing {filteredBatches.length} of {availableBatches.length} available batches
           </p>
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMoreFilters(v => !v)}
+            className={hasActiveMoreFilters ? 'border-primary text-primary' : ''}
+          >
             <Filter className="mr-2 h-4 w-4" />
             More Filters
+            {showMoreFilters
+              ? <ChevronUp className="ml-2 h-3 w-3" />
+              : <ChevronDown className="ml-2 h-3 w-3" />
+            }
+            {hasActiveMoreFilters && (
+              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                {[minPrice, maxPrice, minKwh, verificationFilter !== 'all' ? '1' : ''].filter(Boolean).length}
+              </span>
+            )}
           </Button>
         </div>
 
@@ -153,16 +237,8 @@ export default function Marketplace() {
           <Card>
             <CardContent className="py-12 text-center">
               <p className="text-muted-foreground">No batches found matching your filters</p>
-              <Button
-                variant="link"
-                className="mt-2"
-                onClick={() => {
-                  setCountryFilter('all');
-                  setEnergyTypeFilter('all');
-                  setSearchQuery('');
-                }}
-              >
-                Clear filters
+              <Button variant="link" className="mt-2" onClick={clearAllFilters}>
+                Clear all filters
               </Button>
             </CardContent>
           </Card>
