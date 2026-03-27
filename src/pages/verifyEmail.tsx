@@ -27,6 +27,18 @@ export default function VerifyEmail() {
             if (result.status === 'complete') {
                 // Store role from signup
                 localStorage.setItem('userRole', state?.role || 'producer');
+
+                // Register on-chain wallet in the background (non-blocking)
+                const userId = result.createdUserId;
+                if (userId) {
+                    const apiBase = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
+                    fetch(`${apiBase}/api/wallet/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId }),
+                    }).catch(() => {/* best-effort, non-blocking */});
+                }
+
                 navigate(state?.role === 'producer' ? '/producer-dashboard' : '/buyer-dashboard');
             }
         } catch (err: any) {

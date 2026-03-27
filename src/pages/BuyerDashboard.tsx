@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router';
+import { useUser } from '@clerk/clerk-react';
 import { Award, Leaf, Package, TrendingUp } from 'lucide-react';
 import { KPICard } from '../components/KPICard';
 import { StatusBadge } from '../components/StatusBadge';
@@ -7,9 +9,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { calculateCO2Offset, calculateTreesEquivalent, calculateHomesEquivalent } from '../data/mockData';
 
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
+
 export default function BuyerDashboard() {
-  // Mock buyer data
-  const totalOwned = 13000;
+  const { user } = useUser();
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`${API_BASE}/api/wallet/${user.id}/balance`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setTokenBalance(data.balance); })
+      .catch(() => {/* use fallback */});
+  }, [user?.id]);
+
+  const totalOwned = tokenBalance ?? 13000;
   const totalRetired = 6500;
   const co2Offset = calculateCO2Offset(totalRetired);
   const treesEquivalent = calculateTreesEquivalent(totalRetired);

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useUser } from '@clerk/clerk-react';
 import { CheckCircle2, Upload } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -14,10 +15,15 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
+
 export default function SubmitBatch() {
   const navigate = useNavigate();
+  const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [mintTx, setMintTx] = useState('');
   const [batchId] = useState(`BATCH-2026-${Math.floor(Math.random() * 900 + 100)}`);
   const [month, setMonth] = useState('january');
   const [energyType, setEnergyType] = useState('solar');
@@ -25,23 +31,43 @@ export default function SubmitBatch() {
   const [facilityId, setFacilityId] = useState('FAC-KE-001');
   const [price, setPrice] = useState('0.08');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setIsSubmitting(true);
+    setSubmitError('');
 
-    // Simulate batch submission
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const res = await fetch(`${API_BASE}/api/energy/submit-batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          kwh,
+          energyType,
+          facilityId,
+          pricePerKwh: price,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Submission failed');
+      }
+
+      const data = await res.json();
+      setMintTx(data.mintTx || '');
       setShowSuccess(true);
-    }, 2000);
+    } catch (err: any) {
+      setSubmitError(err.message || 'Failed to submit batch. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleMint = () => {
     setShowSuccess(false);
-    // Simulate minting
-    setTimeout(() => {
-      navigate('/producer-dashboard');
-    }, 1500);
+    navigate('/producer-dashboard');
   };
 
   return (
@@ -175,6 +201,11 @@ export default function SubmitBatch() {
                   </CardContent>
                 </Card>
 
+                {submitError && (
+                  <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                    {submitError}
+                  </div>
+                )}
                 <div className="flex gap-4">
                   <Button
                     type="button"
@@ -219,6 +250,12 @@ export default function SubmitBatch() {
                 <span className="text-muted-foreground">Tokens:</span>
                 <span className="font-medium">{Number(kwh).toLocaleString()} KPWATTS</span>
               </div>
+              {mintTx && (
+                <div className="flex justify-between pt-1 border-t border-border">
+                  <span className="text-muted-foreground">Mint Tx:</span>
+                  <span className="font-mono text-xs break-all text-right max-w-[60%]">{mintTx}</span>
+                </div>
+              )}
             </div>
             <Button className="w-full" onClick={handleMint}>
               Mint KPWATTS Tokens

@@ -15,6 +15,7 @@ export default function ProducerDashboard() {
   const [locations, setLocations] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
 
   const fetchInverters = async () => {
     if (!user?.id) return;
@@ -60,6 +61,14 @@ export default function ProducerDashboard() {
 
   useEffect(() => {
     fetchInverters();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`${API_BASE}/api/wallet/${user.id}/balance`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setTokenBalance(data.balance); })
+      .catch(() => {/* non-critical */});
   }, [user?.id]);
 
   // Derived KPI values from real inverter data
@@ -133,6 +142,14 @@ export default function ProducerDashboard() {
             subtitle="USD (at $0.08/kWh)"
             icon={DollarSign}
           />
+          {tokenBalance !== null && (
+            <KPICard
+              title="Token Balance"
+              value={tokenBalance.toLocaleString()}
+              subtitle="KPWATTS on-chain"
+              icon={Zap}
+            />
+          )}
         </div>
 
         {/* Inverter Cards */}

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Award, CheckCircle2, Download } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
+import { Award, CheckCircle2, Download, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -9,32 +10,66 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { calculateCO2Offset, calculateTreesEquivalent, calculateHomesEquivalent } from '../data/mockData';
 
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
+
 export default function Retire() {
   const navigate = useNavigate();
+  const { user } = useUser();
   const [selectedBatch, setSelectedBatch] = useState('BATCH-2026-002');
   const [quantity, setQuantity] = useState<number>(3000);
   const [isRetiring, setIsRetiring] = useState(false);
+  const [retireError, setRetireError] = useState('');
   const [showCertificate, setShowCertificate] = useState(false);
   const [certificateId, setCertificateId] = useState('');
+  const [retireTx, setRetireTx] = useState('');
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
 
-  const ownedBatches = [
-    { id: 'BATCH-2026-002', producer: 'WindPower Ghana', owned: 6500 },
-  ];
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`${API_BASE}/api/wallet/${user.id}/balance`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setTokenBalance(data.balance); })
+      .catch(() => {/* use fallback */});
+  }, [user?.id]);
+
+  const ownedBatches = tokenBalance !== null && tokenBalance > 0
+    ? [{ id: 'BATCH-2026-002', producer: 'Your Energy Credits', owned: tokenBalance }]
+    : [{ id: 'BATCH-2026-002', producer: 'WindPower Ghana', owned: 6500 }];
 
   const selectedBatchData = ownedBatches.find(b => b.id === selectedBatch);
   const co2Offset = calculateCO2Offset(quantity);
   const treesEquivalent = calculateTreesEquivalent(quantity);
   const homesEquivalent = calculateHomesEquivalent(quantity);
 
-  const handleRetire = (e: React.FormEvent) => {
+  const handleRetire = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setIsRetiring(true);
+    setRetireError('');
 
-    setTimeout(() => {
+    try {
+      const meterId = `METER-${selectedBatch}-${Date.now()}`;
+      const res = await fetch(`${API_BASE}/api/energy/redeem`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, amount: quantity, meterId }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Retirement failed');
+      }
+
+      const data = await res.json();
+      setRetireTx(data.tx || '');
       setCertificateId(`RET-2026-${Math.floor(Math.random() * 1000)}`);
-      setIsRetiring(false);
+      if (tokenBalance !== null) setTokenBalance(Math.max(0, tokenBalance - quantity));
       setShowCertificate(true);
-    }, 2000);
+    } catch (err: any) {
+      setRetireError(err.message || 'Failed to retire tokens. Please try again.');
+    } finally {
+      setIsRetiring(false);
+    }
   };
 
   const handleDownloadCertificate = () => {
@@ -121,6 +156,11 @@ export default function Retire() {
                       </CardContent>
                     </Card>
 
+                    {retireError && (
+                      <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                        {retireError}
+                      </div>
+                    )}
                     <div className="flex gap-4">
                       <Button
                         type="button"
@@ -134,7 +174,9 @@ export default function Retire() {
                         disabled={isRetiring || quantity <= 0 || quantity > (selectedBatchData?.owned || 0)}
                         className="flex-1"
                       >
-                        {isRetiring ? 'Processing Retirement...' : 'Retire Tokens'}
+                        {isRetiring ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing Retirement...</>
+                        ) : 'Retire Tokens'}
                       </Button>
                     </div>
                   </form>
@@ -247,10 +289,12 @@ export default function Retire() {
                     <span className="text-muted-foreground">Retirement Date:</span>
                     <span className="font-medium">{new Date().toLocaleDateString()}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Transaction Hash:</span>
-                    <span className="font-mono text-xs">0xcde345fgh678901...</span>
-                  </div>
+                  {retireTx && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Transaction:</span>
+                      <span className="font-mono text-xs break-all text-right max-w-[60%]">{retireTx}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-center text-xs text-muted-foreground">
