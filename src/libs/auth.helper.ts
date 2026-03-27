@@ -29,7 +29,6 @@ interface SignUpParams {
 interface OAuthParams {
   signIn: SignIn;
   strategy: 'oauth_google' | 'oauth_apple';
-  selectedRole: string;
   setError: (msg: string) => void;
   setIsConnecting: (val: boolean) => void;
 }
@@ -59,8 +58,7 @@ export async function handleEmailSignIn({
   try {
     const result = await signIn.create({ identifier: email, password });
     if (result.status === 'complete') {
-      localStorage.setItem('userRole', selectedRole);
-      navigate(getDashboardRoute(selectedRole));
+      navigate('/dashboard');
     }
   } catch (err: any) {
     setError(err.errors?.[0]?.message || 'Failed to sign in. Please check your credentials.');
@@ -102,7 +100,6 @@ export async function handleEmailSignUp({
 export async function handleOAuthSignIn({
   signIn,
   strategy,
-  selectedRole,
   setError,
   setIsConnecting,
 }: OAuthParams) {
@@ -112,7 +109,7 @@ export async function handleOAuthSignIn({
     await signIn.authenticateWithRedirect({
       strategy,
       redirectUrl: '/sso-callback',
-      redirectUrlComplete: getDashboardRoute(selectedRole),
+      redirectUrlComplete: '/dashboard',
     });
   } catch (err: any) {
     setError(err.errors?.[0]?.message || 'Sign-in failed. Please try again.');

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useLocation } from 'react-router';
 import { useUser } from '@clerk/clerk-react';
 import { ArrowLeft, CheckCircle2, ExternalLink, Loader2, MapPin } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
@@ -24,6 +24,7 @@ interface OnChainFields {
 export default function BatchDetail() {
   const { batchId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useUser();
 
   const [quantity, setQuantity] = useState<number>(1000);
@@ -33,7 +34,10 @@ export default function BatchDetail() {
   const [purchaseTx, setPurchaseTx] = useState('');
   const [purchaseError, setPurchaseError] = useState('');
 
-  const batch = mockBatches.find(b => b.id === batchId) as (typeof mockBatches[0] & OnChainFields) | undefined;
+  // Fall back to router state for on-chain batches not present in mockBatches
+  const batch = (mockBatches.find(b => b.id === batchId) ?? location.state?.batch) as
+    | (typeof mockBatches[0] & OnChainFields)
+    | undefined;
 
   if (!batch) {
     return (

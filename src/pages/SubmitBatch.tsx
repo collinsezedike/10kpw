@@ -258,7 +258,7 @@ export default function SubmitBatch() {
               )}
             </div>
             <Button className="w-full" onClick={handleMint}>
-              Mint KPWATTS Tokens
+              Go to Dashboard
             </Button>
           </div>
         </DialogContent>

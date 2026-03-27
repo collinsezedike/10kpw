@@ -220,7 +220,7 @@ export default function Auth() {
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => handleOAuthSignIn({ signIn, strategy: 'oauth_google', selectedRole, setError, setIsConnecting })}
+                  onClick={() => handleOAuthSignIn({ signIn, strategy: 'oauth_google', setError, setIsConnecting })}
                   disabled={isConnecting}
                 >
                   <GoogleIcon />
@@ -228,7 +228,7 @@ export default function Auth() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleOAuthSignIn({ signIn, strategy: 'oauth_apple', selectedRole, setError, setIsConnecting })}
+                  onClick={() => handleOAuthSignIn({ signIn, strategy: 'oauth_apple', setError, setIsConnecting })}
                   disabled={isConnecting}
                 >
                   <AppleIcon />

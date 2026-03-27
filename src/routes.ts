@@ -17,6 +17,7 @@ import Documentation from './pages/Documentation';
 import Contact from './pages/Contact';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import DashboardRedirect from './pages/DashboardRedirect';
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { path: 'auth', Component: Auth },
       { path: 'verify-email', Component: VerifyEmail },
       { path: 'sso-callback', Component: AuthenticateWithRedirectCallback },
+      { path: 'dashboard', Component: DashboardRedirect },
       { path: 'marketplace', Component: Marketplace },
       { path: 'batch/:batchId', Component: BatchDetail },
       { path: 'about', Component: About },

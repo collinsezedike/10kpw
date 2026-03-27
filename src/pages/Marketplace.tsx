@@ -282,7 +282,7 @@ export default function Marketplace() {
                     </div>
                   </div>
 
-                  <Link to={`/batch/${batch.id}`}>
+                  <Link to={`/batch/${batch.id}`} state={{ batch }}>
                     <Button className="mt-4 w-full">View Details</Button>
                   </Link>
                 </div>
